@@ -1,0 +1,56 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  buildConfiguration: Release
+
+steps:
+# Installer .NET 8
+- task: UseDotNet@2
+  displayName: 'Install .NET 8 SDK'
+  inputs:
+    packageType: 'sdk'
+    version: '8.0.x'
+
+# Restaurer la solution
+- script: |
+    dotnet restore GestionClients.sln
+  displayName: 'Restore solution'
+
+# Build Console UI
+- script: |
+    dotnet publish GC.ConsoleUI/GC.ConsoleUI.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.ConsoleUI
+  displayName: 'Build GC.ConsoleUI'
+
+- publish: $(Build.ArtifactStagingDirectory)/GC.ConsoleUI
+  artifact: GC.ConsoleUI
+
+# Build Batch Modifier Nom Prenom
+- script: |
+    dotnet publish GC.Batch.ModifierNomPrenomPremiereLettreMajuscules/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
+  displayName: 'Build GC.Batch.ModifierNomPrenomPremiereLettreMajuscules'
+
+- publish: $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
+  artifact: GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
+
+# Build Batch Modifier Pays
+- script: |
+    dotnet publish GC.Batch.ModifierPaysMajusculesClients/GC.Batch.ModifierPaysMajusculesClients.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierPaysMajusculesClients
+  displayName: 'Build GC.Batch.ModifierPaysMajusculesClients'
+
+- publish: $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierPaysMajusculesClients
+  artifact: GC.Batch.ModifierPaysMajusculesClients
+
+# Build Web React
+- script: |
+    dotnet publish GC.WebReact/GC.WebReact.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.WebReact
+  displayName: 'Build GC.WebReact'
+
+- publish: $(Build.ArtifactStagingDirectory)/GC.WebReact
+  artifact: GC.WebReact
