@@ -47,21 +47,10 @@ steps:
 - publish: $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierPaysMajusculesClients
   artifact: GC.Batch.ModifierPaysMajusculesClients
 
-# Build Web React
+# Build Web (GC.WebReact) -> ARTEFACT DOSSIER (pas zip)
 - script: |
     dotnet publish GC.WebReact/GC.WebReact.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.WebReact
   displayName: 'Build GC.WebReact'
 
-# Zipper WebReact (pour Release Azure App Service Deploy)
-- task: ArchiveFiles@2
-  displayName: 'Zip GC.WebReact'
-  inputs:
-    rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/GC.WebReact'
-    includeRootFolder: false
-    archiveType: 'zip'
-    archiveFile: '$(Build.ArtifactStagingDirectory)/GC.WebReact.zip'
-    replaceExistingArchive: true
-
-# Publier le ZIP comme artifact (celui-là tu vas prendre dans la Release)
-- publish: $(Build.ArtifactStagingDirectory)/GC.WebReact.zip
-  artifact: GC.WebReactZip
+- publish: $(Build.ArtifactStagingDirectory)/GC.WebReact
+  artifact: GC.WebReact
