@@ -18,15 +18,15 @@ steps:
     packageType: 'sdk'
     version: '8.0.x'
 
-# 2) (DIAPO PROF) Créer le manifest d’outils locaux
+# 2) Créer le manifest d’outils locaux (exigence du prof)
 - script: |
     dotnet new tool-manifest
-  displayName: "Création d'un manifest pour installer des outils locaux (tool-manifest)"
+  displayName: "Création du tool-manifest (.config/dotnet-tools.json)"
 
-# 3) (ROBUSTE) Installer dotnet-ef EXACTEMENT à la version EF utilisée par le projet (6.0.12)
+# 3) Installer dotnet-ef (version alignée avec le projet)
 - script: |
-    dotnet tool install dotnet-ef --version 6.0.12
-  displayName: "Installation EF (dotnet-ef) - outil local (6.0.12)"
+    dotnet tool install dotnet-ef
+  displayName: "Installation dotnet-ef (outil local)"
 
 # 4) Restore
 - script: |
@@ -38,63 +38,65 @@ steps:
     dotnet build GestionClients.sln -c $(buildConfiguration) --no-restore
   displayName: 'Build solution'
 
-# 6) Test
+# 6) Tests
 - script: |
     dotnet test GestionClients.sln -c $(buildConfiguration) --no-build
   displayName: 'Test solution'
 
-# 7) Publier les 4 artefacts demandés (1 par projet)
-
-# GC.ConsoleUI
+# =========================
+# ARTEFACT 1 : GC.ConsoleUI
+# =========================
 - script: |
-    dotnet publish GC.ConsoleUI/GC.ConsoleUI.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.ConsoleUI
-  displayName: 'Build GC.ConsoleUI'
+    dotnet publish GC.ConsoleUI/GC.ConsoleUI.csproj \
+      -c $(buildConfiguration) \
+      -o $(Build.ArtifactStagingDirectory)/GC.ConsoleUI
+  displayName: 'Publish GC.ConsoleUI'
 
 - publish: $(Build.ArtifactStagingDirectory)/GC.ConsoleUI
   artifact: GC.ConsoleUI
 
-# GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
+# ==========================================================
+# ARTEFACT 2 : GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
+# ==========================================================
 - script: |
-    dotnet publish GC.Batch.ModifierNomPrenomPremiereLettreMajuscules/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
-  displayName: 'Build GC.Batch.ModifierNomPrenomPremiereLettreMajuscules'
+    dotnet publish GC.Batch.ModifierNomPrenomPremiereLettreMajuscules/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules.csproj \
+      -c $(buildConfiguration) \
+      -o $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
+  displayName: 'Publish GC.Batch.ModifierNomPrenomPremiereLettreMajuscules'
 
 - publish: $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
   artifact: GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
 
-# GC.Batch.ModifierPaysMajusculesClients
+# =================================================
+# ARTEFACT 3 : GC.Batch.ModifierPaysMajusculesClients
+# =================================================
 - script: |
-    dotnet publish GC.Batch.ModifierPaysMajusculesClients/GC.Batch.ModifierPaysMajusculesClients.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierPaysMajusculesClients
-  displayName: 'Build GC.Batch.ModifierPaysMajusculesClients'
+    dotnet publish GC.Batch.ModifierPaysMajusculesClients/GC.Batch.ModifierPaysMajusculesClients.csproj \
+      -c $(buildConfiguration) \
+      -o $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierPaysMajusculesClients
+  displayName: 'Publish GC.Batch.ModifierPaysMajusculesClients'
 
 - publish: $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierPaysMajusculesClients
   artifact: GC.Batch.ModifierPaysMajusculesClients
 
-# GC.WebReact (artefact demandé par l’énoncé)
-- script: |
-    dotnet publish GC.WebReact/GC.WebReact.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.WebReact
-  displayName: 'Build GC.WebReact'
 
-- publish: $(Build.ArtifactStagingDirectory)/GC.WebReact
-  artifact: GC.WebReact
+# ARTEFACT 4 : GC.WebReact
+# (inclut le script SQL)
 
-# 8) Générer le script SQL idempotent (migrations EF) dans app-drop/SQL
 - script: |
-    mkdir -p $(Build.ArtifactStagingDirectory)/app-drop/SQL
+    dotnet publish GC.WebReact/GC.WebReact.csproj \
+      -c $(buildConfiguration) \
+      -o $(Build.ArtifactStagingDirectory)/GC.WebReact
+  displayName: 'Publish GC.WebReact'
+
+# Génération du script SQL idempotent DANS l’artefact GC.WebReact
+- script: |
+    mkdir -p $(Build.ArtifactStagingDirectory)/GC.WebReact/SQL
     dotnet tool run dotnet-ef migrations script --idempotent \
       --project GC.DAL.EF/GC.DAL.EF.csproj \
       --startup-project GC.WebReact/GC.WebReact.csproj \
-      --output $(Build.ArtifactStagingDirectory)/app-drop/SQL/gc-migrations.sql
-  displayName: "Générer fichier mise à jour structure BD (SQL idempotent)"
+      --output $(Build.ArtifactStagingDirectory)/GC.WebReact/SQL/gc-migrations.sql
+  displayName: 'Generate SQL migration script (idempotent)'
 
-# 9) Assembler app-drop pour MATCHER TON RELEASE :
-# app-drop/GC.WebReact + app-drop/SQL
-- script: |
-    mkdir -p $(Build.ArtifactStagingDirectory)/app-drop/GC.WebReact
-    rm -rf $(Build.ArtifactStagingDirectory)/app-drop/GC.WebReact/*
-    cp -R $(Build.ArtifactStagingDirectory)/GC.WebReact/* $(Build.ArtifactStagingDirectory)/app-drop/GC.WebReact/
-  displayName: 'Assembler app-drop (WebReact + SQL)'
-
-# 10) Publier l'artefact app-drop (celui utilisé dans ton Release)
-- publish: $(Build.ArtifactStagingDirectory)/app-drop
-  displayName: 'Publish artifact app-drop (pour Release)'
-  artifact: app-drop
+- publish: $(Build.ArtifactStagingDirectory)/GC.WebReact
+  artifact: GC.WebReact
