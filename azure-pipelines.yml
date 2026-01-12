@@ -11,19 +11,50 @@ variables:
   buildConfiguration: Release
 
 steps:
-# Installer .NET 8
+# 1) Installer .NET 8
 - task: UseDotNet@2
   displayName: 'Install .NET 8 SDK'
   inputs:
     packageType: 'sdk'
     version: '8.0.x'
 
-# Restaurer la solution
+# 2) (DIAPO PROF) Créer le manifest d’outils locaux
+- script: |
+    dotnet new tool-manifest
+  displayName: "Création d'un manifest pour installer des outils locaux (tool-manifest)"
+
+# 3) (DIAPO PROF) Installer dotnet-ef comme outil local
+- script: |
+    dotnet tool install dotnet-ef
+  displayName: "Installation EF (dotnet-ef) - outil local"
+
+# 4) Restore
 - script: |
     dotnet restore GestionClients.sln
   displayName: 'Restore solution'
 
-# Build Console UI
+# 5) Build
+- script: |
+    dotnet build GestionClients.sln -c $(buildConfiguration) --no-restore
+  displayName: 'Build solution'
+
+# 6) Test
+- script: |
+    dotnet test GestionClients.sln -c $(buildConfiguration) --no-build
+  displayName: 'Test solution'
+
+# 7) Générer le script SQL idempotent -> DANS app-drop/SQL
+- script: |
+    mkdir -p $(Build.ArtifactStagingDirectory)/app-drop/SQL
+    dotnet tool run dotnet-ef migrations script --idempotent \
+      --project GC.DAL.EF/GC.DAL.EF.csproj \
+      --startup-project GC.WebReact/GC.WebReact.csproj \
+      --output $(Build.ArtifactStagingDirectory)/app-drop/SQL/gc-migrations.sql
+  displayName: 'Générer fichier mise à jour structure BD (SQL idempotent)'
+
+# 8) Publier les 4 artefacts demandés (1 par projet)
+
+# GC.ConsoleUI
 - script: |
     dotnet publish GC.ConsoleUI/GC.ConsoleUI.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.ConsoleUI
   displayName: 'Build GC.ConsoleUI'
@@ -31,7 +62,7 @@ steps:
 - publish: $(Build.ArtifactStagingDirectory)/GC.ConsoleUI
   artifact: GC.ConsoleUI
 
-# Build Batch Modifier Nom Prenom
+# GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
 - script: |
     dotnet publish GC.Batch.ModifierNomPrenomPremiereLettreMajuscules/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
   displayName: 'Build GC.Batch.ModifierNomPrenomPremiereLettreMajuscules'
@@ -39,7 +70,7 @@ steps:
 - publish: $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
   artifact: GC.Batch.ModifierNomPrenomPremiereLettreMajuscules
 
-# Build Batch Modifier Pays
+# GC.Batch.ModifierPaysMajusculesClients
 - script: |
     dotnet publish GC.Batch.ModifierPaysMajusculesClients/GC.Batch.ModifierPaysMajusculesClients.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierPaysMajusculesClients
   displayName: 'Build GC.Batch.ModifierPaysMajusculesClients'
@@ -47,10 +78,22 @@ steps:
 - publish: $(Build.ArtifactStagingDirectory)/GC.Batch.ModifierPaysMajusculesClients
   artifact: GC.Batch.ModifierPaysMajusculesClients
 
-# Build Web (GC.WebReact) -> ARTEFACT DOSSIER (pas zip)
+# GC.WebReact (artefact demandé par l’énoncé)
 - script: |
     dotnet publish GC.WebReact/GC.WebReact.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/GC.WebReact
   displayName: 'Build GC.WebReact'
 
 - publish: $(Build.ArtifactStagingDirectory)/GC.WebReact
   artifact: GC.WebReact
+
+# 9) Publier l'artefact "app-drop" pour MATCHER TON RELEASE
+# -> contiendra au minimum: app-drop/GC.WebReact + app-drop/SQL
+- script: |
+    mkdir -p $(Build.ArtifactStagingDirectory)/app-drop/GC.WebReact
+    rm -rf $(Build.ArtifactStagingDirectory)/app-drop/GC.WebReact/*
+    cp -R $(Build.ArtifactStagingDirectory)/GC.WebReact/* $(Build.ArtifactStagingDirectory)/app-drop/GC.WebReact/
+  displayName: 'Assembler app-drop (WebReact + SQL)'
+
+- publish: $(Build.ArtifactStagingDirectory)/app-drop
+  displayName: 'Publish artifact app-drop (pour Release)'
+  artifact: app-drop
