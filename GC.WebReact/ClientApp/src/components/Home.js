@@ -8,7 +8,7 @@ export class Home extends Component {
             <div>
                 <h1>Bonjour ITV !</h1>
                 <p>
-                    Cette application web est le projet de base pour le développement d'une nouvelle interface utilisateur pour la gestion de la clientèle.
+                    Cette application web est le projet de base et un test pour le TP2 Deployement continue.
                 </p>
                 <p>
                     Ce projet n'est pas complet mais permet de démontrer à l'équipe de développement que tout est en place afin de débuter le développement.
